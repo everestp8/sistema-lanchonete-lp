@@ -1,0 +1,230 @@
+\documentclass[12pt]{article}
+
+\usepackage[portuguese]{babel}
+\usepackage{fontspec}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{indentfirst}
+\usepackage{microtype}
+\usepackage{minted}
+\usepackage{xcolor}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black
+}
+
+\setmonofont{JetBrainsMono Nerd Font}
+\definecolor{blackbg}{HTML}{1A1A1B}
+
+\setminted{
+    style=monokai,
+    bgcolor=blackbg,
+    fontsize=\small,
+    breaklines=true
+}
+
+\title{\textbf{Documento de Requisitos: TuxBurger}}
+\author{Charles Evaristo Pimenta da Silva}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introdução}
+
+O \textbf{TuxBurger} é um sistema distribuído cliente-servidor voltado para o gerenciamento de pedidos e controle de estoque de uma lanchonete temática. A aplicação possui uma interface interativa em modo texto (\textit{Terminal User Interface} - TUI) construída sobre o ecossistema Python assíncrono (\texttt{prompt\_toolkit} e \texttt{asyncio}), comunicando-se com um servidor central em tempo real via \textit{WebSockets}.
+
+O fluxo operacional compreende a consulta de lanches e ingredientes locais pelo cliente, a realização e confirmação de pedidos por linha de comando ou via diálogo interativo, o envio do payload estruturado em JSON para o servidor e a simulação do tempo de preparo da cozinha, acompanhada de atualizações visuais com o mascote Tux (\texttt{cowsay} e \texttt{figlet}). No lado do servidor, os pedidos são recebidos por assinantes especializados (\textit{Subscriber Pattern}) que realizam a baixa automática dos ingredientes correspondentes no estoque persistente.
+
+A seguir, apresentam-se as especificações de engenharia de requisitos do sistema, divididas em: \textbf{Histórias de Usuário}, \textbf{Requisitos Funcionais} e \textbf{Requisitos Não-Funcionais}, cobrindo todas as funcionalidades implementadas e vigentes na plataforma.
+
+\subsection{Histórias de Usuário}
+
+As histórias de usuário expressam as necessidades sob o ponto de vista dos atores que interagem com o sistema: o \textbf{Cliente/Consumidor} e a \textbf{Equipe de Cozinha / Administrador do Sistema}.
+
+\subsubsection{Visão do Cliente / Consumidor}
+
+\begin{enumerate}
+    \item[\textbf{US01}] \textbf{Visualização do Cardápio:} \\
+    \textit{Como} cliente da lanchonete, \\
+    \textit{quero} consultar o cardápio formatado com a lista completa de lanches e seus respectivos ingredientes e quantidades, \\
+    \textit{para que} eu possa escolher o lanche que melhor atende à minha preferência antes de efetuar uma compra.
+    
+    \item[\textbf{US02}] \textbf{Realização Direta de Pedido:} \\
+    \textit{Como} cliente habitual, \\
+    \textit{quero} solicitar um lanche informando seu nome diretamente como argumento (por exemplo, \texttt{/pedido Y-Burger}), \\
+    \textit{para que} o processo de compra seja ágil e sem etapas desnecessárias.
+
+    \item[\textbf{US03}] \textbf{Realização Interativa e Guiada de Pedido:} \\
+    \textit{Como} cliente iniciante ou indeciso, \\
+    \textit{quero} digitar apenas \texttt{/pedido} e ser orientado pelo sistema por meio de perguntas na tela sobre qual lanche escolher e se desejo confirmar, \\
+    \textit{para que} eu não precise memorizar a sintaxe exata dos comandos nem cometa enganos no pedido.
+
+    \item[\textbf{US04}] \textbf{Cancelamento de Pedido em Andamento:} \\
+    \textit{Como} cliente, \\
+    \textit{quero} ter a opção de cancelar o fluxo de pedido a qualquer momento antes de confirmá-lo, digitando a instrução \texttt{cancelar} ou recusando a pergunta com \texttt{n}, \\
+    \textit{para que} nenhuma transação indesejada seja despachada caso eu mude de ideia.
+
+    \item[\textbf{US05}] \textbf{Acompanhamento do Tempo de Cozimento:} \\
+    \textit{Como} cliente, \\
+    \textit{quero} ser informado do tempo estimado de preparo da cozinha (simulação de 20 segundos) e ser notificado no painel assim que meu pedido for concluído, \\
+    \textit{para que} eu saiba exatamente quando retirar meu lanche no balcão.
+
+    \item[\textbf{US06}] \textbf{Limpeza de Tela e Consulta de Ajuda:} \\
+    \textit{Como} usuário do terminal, \\
+    \textit{quero} dispor de comandos para limpar mensagens acumuladas (\texttt{/clear}) e listar todos os comandos válidos (\texttt{/help}), \\
+    \textit{para que} o painel visual permaneça limpo e legível durante minha sessão.
+\end{enumerate}
+
+\subsubsection{Visão da Cozinha / Administração}
+
+\begin{enumerate}
+    \item[\textbf{US07}] \textbf{Controle Automático de Inventário:} \\
+    \textit{Como} administrador do estabelecimento, \\
+    \textit{quero} que os ingredientes consumidos em cada pedido aprovado sejam automaticamente debitados do arquivo central de estoque, \\
+    \textit{para que} o saldo de matéria-prima esteja sempre atualizado sem intervenção manual.
+
+    \item[\textbf{US08}] \textbf{Bloqueio por Falta de Ingredientes:} \\
+    \textit{Como} cozinheiro, \\
+    \textit{quero} que o sistema valide preventivamente o estoque e rejeite pedidos cujos ingredientes estejam esgotados, \\
+    \textit{para que} a cozinha não receba comandas impossíveis de serem atendidas por falta de suprimentos.
+
+    \item[\textbf{US09}] \textbf{Alerta de Nível Mínimo de Estoque:} \\
+    \textit{Como} gerente de compras, \\
+    \textit{quero} receber avisos de estoque baixo quando a quantidade de qualquer ingrediente atingir um limiar crítico, \\
+    \textit{para que} seja possível providenciar reposição com fornecedores com antecedência e evitar desabastecimento.
+
+    \item[\textbf{US10}] \textbf{Identificação Sequencial de Comandas:} \\
+    \textit{Como} operador de caixa e cliente, \\
+    \textit{quero} que cada pedido receba um número de comanda sequencial exclusivo, \\
+    \textit{para que} seja fácil organizar a ordem de entrega e rastrear o pedido no balcão.
+\end{enumerate}
+
+\subsection{Requisitos Funcionais}
+
+Os requisitos funcionais detalham as operações, regras de negócio e comportamentos que o sistema deve executar. O quadro~\ref{tab:rf} resume os requisitos mapeados, indicando a sua prioridade e status de implementação.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X c c}
+\toprule
+\textbf{ID} & \textbf{Descrição Resumida} & \textbf{Prioridade} & \textbf{Status} \\
+\midrule
+\textbf{RF01} & Exibição do cardápio formatado com ingredientes & Alta & Implementado \\
+\textbf{RF02} & Realização interativa de pedidos com confirmação & Alta & Implementado \\
+\textbf{RF03} & Realização direta de pedidos via parâmetros & Alta & Implementado \\
+\textbf{RF04} & Validação de opções existentes no cardápio & Alta & Implementado \\
+\textbf{RF05} & Mecanismo de cancelamento de solicitação & Média & Implementado \\
+\textbf{RF06} & Transmissão assíncrona do pedido via WebSocket & Crítica & Implementado \\
+\textbf{RF07} & Simulação do tempo de preparo de cozinha (20s) & Média & Implementado \\
+\textbf{RF08} & Prevenção de pedidos simultâneos no mesmo terminal & Média & Implementado \\
+\textbf{RF09} & Débito automático de ingredientes no estoque central & Alta & Implementado \\
+\textbf{RF10} & Limpeza do histórico de mensagens do Painel 1 & Baixa & Implementado \\
+\textbf{RF11} & Exibição dinâmica de comandos de ajuda & Baixa & Implementado \\
+\textbf{RF12} & Validação e bloqueio por estoque insuficiente & Alta & Implementado \\
+\textbf{RF13} & Alertas automáticos de estoque crítico/baixo & Média & Implementado \\
+\textbf{RF14} & Geração de identificador sequencial de comanda & Baixa & Implementado \\
+\bottomrule
+\end{tabularx}
+\caption{Quadro de Requisitos Funcionais do Sistema TuxBurger.}
+\label{tab:rf}
+\end{table}
+
+\subsubsection{Detalhamento dos Requisitos Funcionais}
+
+\begin{description}
+    \item[RF01 - Exibição do Cardápio:] Ao receber o comando \texttt{/cardapio} (ou \texttt{/menu}), o sistema deve ler os dados do arquivo \texttt{data.json} local, formatar cada lanche com molduras decorativas, listar todos os ingredientes com suas respectivas porções e exibir o resultado no Painel 1.
+    
+    \item[RF02 - Realização Interativa de Pedidos:] Ao executar \texttt{/pedido} (ou \texttt{/pedir}) sem parâmetros, o sistema deve suspender o fluxo normal e exibir uma pergunta na lista de mensagens padrão solicitando o nome do lanche. Após receber o nome válido, deve solicitar confirmação explícita (\texttt{s/n}) antes do despacho.
+    
+    \item[RF03 - Realização Direta de Pedidos:] O comando \texttt{/pedido <nome>} deve permitir a passagem direta do nome do lanche. Se o item existir no cardápio, o sistema avança imediatamente para a etapa de confirmação.
+    
+    \item[RF04 - Validação de Lanches:] Caso o usuário digite um lanche inexistente ou com erro de digitação, o sistema deve recusar a entrada, listar as opções válidas disponíveis no cardápio e solicitar uma nova tentativa ou o cancelamento.
+    
+    \item[RF05 - Cancelamento de Solicitação:] Se o usuário digitar \texttt{cancelar}, \texttt{/cancelar}, \texttt{sair} ou responder negativamente à pergunta de confirmação (\texttt{n} ou \texttt{nao}), o pedido deve ser abortado sem enviar mensagens à rede.
+
+    \item[RF06 - Transmissão via WebSocket:] Após a confirmação, o cliente deve serializar e enviar ao servidor um pacote JSON contendo o identificador do assinante (\texttt{"id": "order"}), o nome do lanche e o dicionário de ingredientes necessários.
+
+    \item[RF07 - Simulação de Cozinha:] Após o envio à rede, o cliente deve iniciar uma espera assíncrona não bloqueante de 20 segundos (\texttt{asyncio.sleep}), exibindo mensagens informativas de início e conclusão do preparo.
+
+    \item[RF08 - Prevenção de Concorrência Local:] O cliente deve manter uma flag de estado (\texttt{is\_cooking}). Enquanto um lanche estiver sendo preparado, novas chamadas ao comando \texttt{/pedido} devem ser rejeitadas com uma mensagem de aviso.
+
+    \item[RF09 - Débito no Estoque:] O servidor, por meio do componente \texttt{OrderSub} e da classe \texttt{IngredientStorage}, deve processar o JSON do pedido e subtrair cada ingrediente utilizado das quantidades correspondentes registradas no arquivo de estoque do servidor (\texttt{data.json}), respondendo uma confirmação via WebSocket.
+
+    \item[RF10 - Limpeza do Painel:] O comando \texttt{/clear} (ou \texttt{/limpar}) deve esvaziar a lista de mensagens do Painel 1 através do método \texttt{clear()} de \texttt{MessagesState}.
+
+    \item[RF11 - Ajuda ao Usuário:] O comando \texttt{/help} (ou \texttt{/ajuda}) deve gerar e imprimir na tela a relação dinâmica de todos os comandos registrados no objeto \texttt{Commandable} com suas respectivas descrições.
+
+    \item[RF12 - Bloqueio por Estoque Insuficiente:] Antes de efetivar a subtração, o servidor deve verificar se há quantidade suficiente para todos os ingredientes exigidos pelo lanche. Se qualquer ingrediente for insuficiente, o pedido deve ser rejeitado no servidor e uma mensagem de erro explicativa deve retornar ao cliente.
+
+    \item[RF13 - Alertas de Estoque Crítico:] Caso a quantidade de qualquer ingrediente caia abaixo de um limiar mínimo configurado (menor ou igual a 5 unidades), o servidor deve emitir um aviso no log e notificar o cliente sobre a iminência de ruptura de estoque.
+
+    \item[RF14 - Geração de Comanda Sequencial:] O servidor deve indexar cada pedido confirmado com um identificador único sequencial (exemplo: \texttt{\#001}, \texttt{\#002}), estampando a numeração na confirmação de entrega ao cliente.
+\end{description}
+
+\subsection{Requisitos Não-Funcionais}
+
+Os requisitos não-funcionais definem critérios de qualidade, restrições arquiteturais, padrões de desempenho, usabilidade e tecnologias que sustentam a operação do TuxBurger. O quadro~\ref{tab:rnf} sumariza essas diretrizes.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X c c}
+\toprule
+\textbf{ID} & \textbf{Categoria e Descrição} & \textbf{Prioridade} & \textbf{Status} \\
+\midrule
+\textbf{RNF01} & \textbf{Usabilidade:} Interface rica no terminal com TUI & Alta & Implementado \\
+\textbf{RNF02} & \textbf{Estabilidade Visual:} Proibição de word wrap e largura fixa & Crítica & Implementado \\
+\textbf{RNF03} & \textbf{Arquitetura:} Desacoplamento estrito e princípios SOLID & Alta & Implementado \\
+\textbf{RNF04} & \textbf{Desempenho:} I/O e temporizadores puramente assíncronos & Crítica & Implementado \\
+\textbf{RNF05} & \textbf{Interoperabilidade:} Protocolo WebSocket padronizado com JSON & Alta & Implementado \\
+\textbf{RNF06} & \textbf{Persistência:} Armazenamento em arquivos JSON legíveis & Média & Implementado \\
+\textbf{RNF07} & \textbf{Portabilidade:} Execução em sistemas Linux com suporte a Nerd Font & Média & Implementado \\
+\textbf{RNF08} & \textbf{Confiabilidade:} Encerramento gracioso e restauração do terminal & Alta & Implementado \\
+\textbf{RNF09} & \textbf{Concorrência:} Capacidade do servidor atender múltiplos clientes & Alta & Implementado \\
+\textbf{RNF10} & \textbf{Atomicidade:} Transações atômicas de estoque no servidor & Alta & Implementado \\
+\bottomrule
+\end{tabularx}
+\caption{Quadro de Requisitos Não-Funcionais do Sistema TuxBurger.}
+\label{tab:rnf}
+\end{table}
+
+\subsubsection{Detalhamento dos Requisitos Não-Funcionais}
+
+\begin{description}
+    \item[RNF01 - Interface em Modo Texto (TUI):] O sistema cliente deve ser executado no terminal utilizando a biblioteca \texttt{prompt\_toolkit}, operando em modo de tela cheia (\textit{full screen}), com linha de input na parte inferior e divisão clara entre mensagens e identidade visual.
+
+    \item[RNF02 - Estabilidade Visual e Sem Word Wrap:] Para evitar a distorção da arte ASCII gerada para o mascote Tux, o layout deve configurar a janela do mascote com largura fixa de 60 colunas (\texttt{dont\_extend\_width=True}). Ambos os painéis devem configurar \texttt{wrap\_lines=False} e \texttt{ignore\_content\_width=True}, garantindo que mensagens compridas no Painel 1 não espremam nem desconfigurem o alinhamento visual do mascote.
+
+    \item[RNF03 - Arquitetura Desacoplada (SOLID):] A arquitetura do cliente deve obedecer aos princípios de responsabilidade única e segregação de interfaces:
+    \begin{itemize}
+        \item \textbf{Apresentação:} A classe \texttt{Menu} gerencia exclusivamente a renderização e captura de entradas, sem referências diretas a conexões de rede ou regras de negócio de lanches.
+        \item \textbf{Comandos:} A interface \texttt{Commandable} padroniza a entrega de comandos. A classe \texttt{OrderCommandHandler} encapsula o fluxo de negócio do cardápio e dos pedidos.
+        \item \textbf{Renderização Visual:} O componente \texttt{TuxRenderer} isola as invocações aos binários do sistema (\texttt{cowsay} e \texttt{figlet}).
+        \item \textbf{Comunicação:} A classe \texttt{Client} atua como fachada para a conexão WebSocket.
+        \item \textbf{Composition Root:} O arquivo \texttt{main.py} atua como ponto único de amarração e injeção de dependências.
+    \end{itemize}
+
+    \item[RNF04 - Desempenho e Não Bloqueio:] Todas as operações de entrada/saída de rede e contadores temporais devem ser implementadas sobre o loop de eventos assíncrono do Python (\texttt{asyncio}). O temporizador de 20 segundos da cozinha deve utilizar \texttt{await asyncio.sleep}, sendo estritamente proibido o uso de chamadas bloqueantes como \texttt{time.sleep}, assegurando taxa de atualização suave da interface.
+
+    \item[RNF05 - Protocolo de Comunicação:] A comunicação entre cliente e servidor deve ocorrer via WebSockets na porta 3030 (\texttt{ws://localhost:3030}), empregando mensagens codificadas em JSON com codificação UTF-8, facilitando a inspeção e a integração entre módulos independentes.
+
+    \item[RNF06 - Persistência Simples e Auditável:] Os dados de ingredientes do cardápio e de saldo de estoque devem ser persistidos em formato JSON padrão, viabilizando verificações e manutenções manuais sem necessidade de dependências pesadas de bancos relacionais na fase atual.
+
+    \item[RNF07 - Portabilidade e Dependências do Host:] A aplicação cliente deve ser compatível com ambientes Linux modernos, dependendo da instalação dos pacotes de sistema \texttt{figlet} e \texttt{cowsay}, além de suporte a emuladores de terminal compatíveis com Unicode e fontes monoespaçadas (preferencialmente Nerd Fonts).
+
+    \item[RNF08 - Encerramento Gracioso:] A aplicação deve capturar o comando de encerramento (\texttt{/exit}) ou o atalho \texttt{Ctrl+C}, desfazendo as alterações de buffer do terminal e encerrando a conexão WebSocket de forma limpa via gerenciador de contexto assíncrono (\texttt{async with}).
+
+    \item[RNF09 - Concorrência no Servidor:] O servidor WebSocket deve ser assíncrono e suportar conexões de múltiplos terminais clientes simultaneamente sem degradação perceptível.
+
+    \item[RNF10 - Atomicidade e Integridade do Estoque:] O processo de consulta e débito de estoque no servidor deve ser executado de forma atômica utilizando mecanismos de sincronização assíncrona (\texttt{asyncio.Lock}), impedindo condições de corrida (\textit{race conditions}) quando múltiplos clientes realizarem pedidos simultaneamente.
+\end{description}
+
+\end{document}

@@ -1,0 +1,31 @@
+[
+    {
+        "name": "Y-Burger",
+        "ingredients": {
+            "bread": 2,
+            "hamburger": 1,
+            "cheese": 1,
+            "tomato": 1,
+            "lettuce": 1,
+            "onion": 1,
+            "pickles": 1
+        }
+    },
+    {
+        "name": "Y-bacon",
+        "ingredients": {
+            "bread": 2,
+            "hamburger": 1,
+            "cheese": 1,
+            "bacon": 4
+        }
+    },
+    {
+        "name": "Super Picles",
+        "ingredients": {
+            "bread": 2,
+            "lettuce": 1,
+            "pickles": 5
+        }
+    }
+]
